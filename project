@@ -1,0 +1,109 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Dashboard - Student Wellness Monitor</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding:20px; max-width:900px; margin:auto; }
+    table { width:100%; border-collapse:collapse; margin-top:12px; }
+    th,td { border:1px solid #ddd; padding:8px; text-align:left; }
+    .card { padding:10px; border-radius:8px; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:12px; }
+    .stats { display:flex; gap:10px; flex-wrap:wrap; }
+    .stat { flex:1; min-width:140px; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard</h1>
+  <p><a href="/">Add Entry</a> · <a href="/export.csv">Export CSV</a></p>
+
+  <div class="stats">
+    <div class="card stat">
+      <strong>Total entries</strong>
+      <div>{{ stats['count'] or 0 }}</div>
+    </div>
+    <div class="card stat">
+      <strong>Avg sleep (hrs)</strong>
+      <div>{{ ('%.2f' % stats['avg_sleep']) if stats['avg_sleep'] else '—' }}</div>
+    </div>
+    <div class="card stat">
+      <strong>Avg steps</strong>
+      <div>{{ ('%.0f' % stats['avg_steps']) if stats['avg_steps'] else '—' }}</div>
+    </div>
+    <div class="card stat">
+      <strong>Avg mood</strong>
+      <div>{{ ('%.2f' % stats['avg_mood']) if stats['avg_mood'] else '—' }}</div>
+    </div>
+    <div class="card stat">
+      <strong>Avg study (min)</strong>
+      <div>{{ ('%.0f' % stats['avg_study']) if stats['avg_study'] else '—' }}</div>
+    </div>
+  </div>
+
+  <h2>Recent entries (latest 30)</h2>
+  <table>
+    <thead><tr><th>When (UTC)</th><th>Name</th><th>Sleep</th><th>Steps</th><th>Mood</th><th>Study (min)</th><th>Notes</th></tr></thead>
+    <tbody>
+      {% for e in entries %}
+        <tr>
+          <td>{{ e['timestamp'] }}</td>
+          <td>{{ e['student_name'] }}</td>
+          <td>{{ e['sleep_hours'] }}</td>
+          <td>{{ e['steps'] }}</td>
+          <td>{{ e['mood'] }}</td>
+          <td>{{ e['study_minutes'] }}</td>
+          <td>{{ e['notes'] }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7">No entries yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h2>Charts</h2>
+  <canvas id="sleepChart" height="120"></canvas>
+  <canvas id="moodChart" height="120" style="margin-top:18px;"></canvas>
+
+  <script>
+    // prepare data from server-rendered table rows
+    const rows = Array.from(document.querySelectorAll('table tbody tr'))
+      .filter(r => r.children.length === 7)
+      .map(r => ({
+        timestamp: r.children[0].innerText,
+        sleep: parseFloat(r.children[2].innerText) || 0,
+        mood: parseFloat(r.children[4].innerText) || 0
+      }))
+      .reverse(); // chronological
+
+    const labels = rows.map(r => r.timestamp.split('T')[0] + ' ' + (r.timestamp.split('T')[1] || ''));
+
+    const sleepData = rows.map(r => r.sleep);
+    const moodData = rows.map(r => r.mood);
+
+    // Chart.js charts
+    if (rows.length > 0) {
+      const ctx1 = document.getElementById('sleepChart').getContext('2d');
+      new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Sleep hours', data: sleepData, tension: 0.3, fill: false }]
+        }
+      });
+
+      const ctx2 = document.getElementById('moodChart').getContext('2d');
+      new Chart(ctx2, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{ label: 'Mood (1-5)', data: moodData }]
+        }
+      });
+    } else {
+      document.getElementById('sleepChart').remove();
+      document.getElementById('moodChart').remove();
+    }
+  </script>
+</body>
+</html>
